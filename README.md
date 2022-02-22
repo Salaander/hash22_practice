@@ -1,0 +1,1 @@
+# hash22_practice
