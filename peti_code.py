@@ -4,17 +4,41 @@ from collections import defaultdict
 from common import get_file
 from typing import List
 import numpy as np
+import bisect
 
 class Contributor:
     def __init__(self, name, skills):
         self.name = name
         self.skills = skills
 
-        self.schedule = np.zeros(1000)
+        self.schedule = {"start":[], "stop":[]} # closed interval
     def is_free(self, a,b):
-        return np.sum(self.schedule[a:b+1])==0
+
+        if a in self.schedule["start"] or a in self.schedule["stop"]:
+            return False
+        if b in self.schedule["start"] or b in self.schedule["stop"]:
+            return False
+        
+        i_a_start = bisect.bisect_left(self.schedule["start"], a)
+        i_b_start = bisect.bisect_left(self.schedule["start"], b)
+        i_a_stop  = bisect.bisect_left(self.schedule["stop"],  a)
+        i_b_stop  = bisect.bisect_left(self.schedule["stop"],  b)
+
+        if i_a_start == i_a_stop+1:
+            return False
+
+        if i_b_start == i_b_stop+1:
+            return False
+            
+        if i_a_start != i_b_start:
+            return False
+
+        return True
+        
     def book_time(self, a,b):
-        self.schedule[a:b+1] = 1
+        bisect.insort(self.schedule["start"], a)
+        bisect.insort(self.schedule["stop"],  b)
+        
 
     def __str__(self):
         return str(self.name) + " " + ' '.join([f"{skill} {level}" for skill, level in self.skills.items()])
@@ -27,7 +51,8 @@ class Project:
         self.bb = bb
         self.roles = roles
 
-
+        self.scheduled = False
+        self.assigned_workers = []
 
     def __str__(self):
         return ' '.join([str(self.name), str(self.days_required), str(self.score), str(self.bb)]) + " " + ' '.join([f"{skill} {level}" for skill, level in self.roles.items()])
@@ -47,7 +72,7 @@ class WorkerPool(object):
                 else:
                     self.skill2workers[s] = [w]
         for s in w.skills.keys():
-            self.skill2workers[s] = sorted( self.skill2workers[s], key= lambda x : x.skills[s], reverse=True)
+            self.skill2workers[s] = sorted( self.skill2workers[s], key= lambda x : x.skills[s])
 
         self.skill2level2workers = {}
         for w in self.workers:
@@ -60,9 +85,8 @@ class WorkerPool(object):
                 else:
                     self.skill2level2workers[s] = {w}
                     self.skill2level2workers[s][level] = [w]
-
         for k in self.skill2level2workers.keys():
-            self.skill2level2workers[k] = sorted(self.skill2level2workers[k], reverse=True)
+            self.skill2level2workers[k] = sorted(self.skill2level2workers[k])
 
     def get_best_workers1(self, time, project):
 
@@ -81,17 +105,13 @@ class WorkerPool(object):
 
         return contributors
             
-
-                
-        
-        
-
-
                 
 class Solver:
     def __init__(self):
         self.contributors = []
         self.projects = []
+
+        self.solution = {}
 
         self.worker_pool = WorkerPool(self.contributors)
 
@@ -129,9 +149,15 @@ class Solver:
                     w.book_time(time, time + p.days_required )
 
                 p.scheduled = True
-                p.assigned_workers = 
+                p.assigned_workers = workers_selected
 
 
+    def write(self, filename):
+        with open(filename, 'w') as file:
+            file.write(str(len(self.solution))+"\n")
+            for p_id, contributors in self.solution.items():
+                file.write(self.projects[p_id].name+"\n")
+                file.write(" ".join([c.name for c in contributors])+"\n")
 
     def print(self):
         print(f"Contributors ({len(self.contributors)})")
