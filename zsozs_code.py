@@ -1,4 +1,5 @@
 import os
+from pprint import pprint
 from collections import defaultdict
 
 from common import get_file
@@ -25,10 +26,30 @@ class Project:
         return ' '.join([str(self.name), str(self.days_required), str(self.score), str(self.bb)]) + " " + ' '.join([f"{skill} {level}" for skill, level in self.roles.items()])
 
 
+class Stat:
+    def __init__(self):
+        self.skills = {}
+
+    def add_skill(self, name, level):
+        if name not in self.skills:
+            self.skills[name] = {"skills": {}, "roles": {}}
+        if level not in self.skills[name]["skills"]:
+            self.skills[name]["skills"][level] = 0
+        self.skills[name]["skills"][level] += 1
+
+    def add_role(self, name, level):
+        if name not in self.skills:
+            self.skills[name] = {"skills": {}, "roles": {}}
+        if level not in self.skills[name]["roles"]:
+            self.skills[name]["roles"][level] = 0
+        self.skills[name]["roles"][level] += 1
+
+
 class Solver:
     def __init__(self):
         self.contributors = []
         self.projects = []
+        self.skills_to_people = {}
 
     def read(self, filename):
         with open(filename, 'r') as file:
@@ -52,14 +73,43 @@ class Solver:
                 project = Project(name, D, S, B, roles)
                 self.projects.append(project)
 
-    def print(self):
-        print(f"Contributors ({len(self.contributors)})")
+    def preprocess(self):
         for c in self.contributors:
-            print(c)
+            for s, l in c.skills.items():
+                if s not in self.skills_to_people:
+                    self.skills_to_people[s] = {}
+                if l not in self.skills_to_people[s]:
+                    self.skills_to_people[s][l] = []
+                self.skills_to_people[s][l].append(c)
+        pprint(self.skills_to_people)
+
+    def solve(self):
+        self.preprocess()
+
+    def print(self, verbose = False):
         print("")
+        print(f"Contributors ({len(self.contributors)})")
+        if verbose:
+            for c in self.contributors:
+                print(c)
+            print("")
         print(f"Projects ({len(self.projects)})")
+        if verbose:
+            for p in self.projects:
+                print(p)
+            print("")
+
+    def print_stats(self):
+        stat = Stat()
+        for c in self.contributors:
+            for s, l in c.skills.items():
+                stat.add_skill(s, l)
         for p in self.projects:
-            print(p)
+            for s, l in p.roles.items():
+                stat.add_role(s, l)
+        print("Skills")
+        pprint(stat.skills, width=200)
+        print("")
 
 inputs = [
     "a_an_example.in.txt",
@@ -74,3 +124,5 @@ for input in inputs:
     solver = Solver()
     solver.read(os.path.join("in_data", input))
     solver.print()
+    solver.print_stats()
+    solver.solve()
