@@ -55,7 +55,7 @@ class PizzaShop:
     def get_ingredients(self, limit):
         self.ingredients = []
         for ingredient in self.likes.keys():
-            if self.dislikes[ingredient] < limit:
+            if self.dislikes[ingredient] == 0 or float(self.likes[ingredient]) / self.dislikes[ingredient] > limit:
                 self.ingredients.append(ingredient)
 
     def get_score(self):
@@ -72,11 +72,11 @@ for filename in ["a_an_example", "b_basic", "c_coarse", "d_difficult", "e_elabor
     shop.print()
     shop.calculate_like_dislike_dict()
     best = 0
-    for i in range(max(100, len(shop.likes))):
-        shop.get_ingredients(i)
+    for i in range(0, 120, 2):
+        shop.get_ingredients(float(i) / 100)
         score = shop.get_score()
         if score > best:
             best = score
             shop.write(filename + ".out.txt")
-            print(best)
+            print(float(i) / 100, best)
 
