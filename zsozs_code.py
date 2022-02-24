@@ -1,82 +1,76 @@
+import os
 from collections import defaultdict
 
-class Person:
-    def __init__(self, likes, dislikes):
-        self.likes = likes
-        self.dislikes = dislikes
+from common import get_file
+from typing import List
+
+
+class Contributor:
+    def __init__(self, name, skills):
+        self.name = name
+        self.skills = skills
 
     def __str__(self):
-        return str(self.likes) + " " + str(self.dislikes)
+        return str(self.name) + " " + ' '.join([f"{skill} {level}" for skill, level in self.skills.items()])
 
-class PizzaShop:
+class Project:
+    def __init__(self, name, days_required, score, bb, roles):
+        self.name = name
+        self.days_required = days_required
+        self.score = score
+        self.bb = bb
+        self.roles = roles
+
+    def __str__(self):
+        return ' '.join([str(self.name), str(self.days_required), str(self.score), str(self.bb)]) + " " + ' '.join([f"{skill} {level}" for skill, level in self.roles.items()])
+
+
+class Solver:
     def __init__(self):
-        self.customers = []
-        self.likes = defaultdict(int)
-        self.dislikes = defaultdict(int)
-        self.ingredients = []
+        self.contributors = []
+        self.projects = []
 
     def read(self, filename):
         with open(filename, 'r') as file:
-            lineno, likes, dislikes = 0, [], []
-            for l in file.readlines():
-                if lineno == 0:
-                    pass
-                else:
-                    l = l.strip().split()[1:]
-                    if lineno % 2 == 1:
-                        likes = l
-                    else:
-                        dislikes = l
-                        self.add_customer(likes, dislikes)
-                lineno += 1
+            C, P = list(map(int, file.readline().split()))
+            for i in range(C):
+                name, N = file.readline().split()
+                N = int(N)
+                skills = {}
+                for j in range(N):
+                    skill, level = file.readline().split()
+                    skills[skill] = int(level)
+                contributor = Contributor(name, skills)
+                self.contributors.append(contributor)
+            for i in range(P):
+                name, D, S, B, R = file.readline().split()
+                D, S, B, R = list(map(int, [D, S, B, R]))
+                roles = {}
+                for j in range(R):
+                    skill, level = file.readline().split()
+                    roles[skill] = int(level)
+                project = Project(name, D, S, B, roles)
+                self.projects.append(project)
 
-    def write(self, filename):
-        with open(filename, 'w') as file:
-            file.write(' '.join([str(len(self.ingredients))] + self.ingredients))
+    def print(self):
+        print(f"Contributors ({len(self.contributors)})")
+        for c in self.contributors:
+            print(c)
+        print("")
+        print(f"Projects ({len(self.projects)})")
+        for p in self.projects:
+            print(p)
 
-    def add_customer(self, likes, dislikes):
-        self.customers.append(Person(likes, dislikes))
+inputs = [
+    "a_an_example.in.txt",
+    # "b_better_start_small.in.txt",
+    # "c_collaboration.in.txt",
+    # "d_dense_schedule.in.txt",
+    # "e_exceptional_skills.in.txt",
+    # "f_find_great_mentors.in.txt",
+]
 
-    def print(self, verbose=False):
-        if verbose:
-            for i, c in enumerate(self.customers):
-                print(i, c)
-        print("Likes:", dict(self.likes))
-        print("Dislikes:", dict(self.dislikes))
-        print("Num of all customers:", len(self.customers))
-
-    def calculate_like_dislike_dict(self):
-        for c in self.customers:
-            for ingredient in c.likes:
-                self.likes[ingredient] += 1
-            for ingredient in c.dislikes:
-                self.dislikes[ingredient] += 1
-
-    def get_ingredients(self, limit):
-        self.ingredients = []
-        for ingredient in self.likes.keys():
-            if self.dislikes[ingredient] == 0 or float(self.likes[ingredient]) / self.dislikes[ingredient] > limit:
-                self.ingredients.append(ingredient)
-
-    def get_score(self):
-        score = 0
-        for c in self.customers:
-            if all([(i in self.ingredients) for i in c.likes]) and \
-                    not any([(i in self.ingredients) for i in c.dislikes]):
-                score += 1
-        return score
-
-for filename in ["a_an_example", "b_basic", "c_coarse", "d_difficult", "e_elaborate"]:
-    shop = PizzaShop()
-    shop.read(filename + ".in.txt")
-    shop.print()
-    shop.calculate_like_dislike_dict()
-    best = 0
-    for i in range(0, 120, 2):
-        shop.get_ingredients(float(i) / 100)
-        score = shop.get_score()
-        if score > best:
-            best = score
-            shop.write(filename + ".out.txt")
-            print(float(i) / 100, best)
-
+for input in inputs:
+    solver = Solver()
+    solver.read(os.path.join("in_data", input))
+    solver.print()
