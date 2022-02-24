@@ -44,12 +44,13 @@ class Contributor:
         return str(self.name) + " " + ' '.join([f"{skill} {level}" for skill, level in self.skills.items()])
 
 class Project:
-    def __init__(self, name, days_required, score, bb, roles):
+    def __init__(self, name, days_required, score, bb, roles, id_):
         self.name = name
         self.days_required = days_required
         self.score = score
         self.bb = bb
         self.roles = roles
+        self.id = id_
 
         self.scheduled = False
         self.assigned_workers = []
@@ -71,7 +72,7 @@ class WorkerPool(object):
                     self.skill2workers[s].append(w)
                 else:
                     self.skill2workers[s] = [w]
-        for s in w.skills.keys():
+        for s in self.skill2workers.keys():
             self.skill2workers[s] = sorted( self.skill2workers[s], key= lambda x : x.skills[s])
 
         self.skill2level2workers = {}
@@ -83,27 +84,34 @@ class WorkerPool(object):
                     else:
                         self.skill2level2workers[s][level] = [w]
                 else:
-                    self.skill2level2workers[s] = {w}
+                    self.skill2level2workers[s] = {}
                     self.skill2level2workers[s][level] = [w]
-        for k in self.skill2level2workers.keys():
-            self.skill2level2workers[k] = sorted(self.skill2level2workers[k])
+        # for k in self.skill2level2workers.keys():
+        #     self.skill2level2workers[k] = sorted(self.skill2level2workers[k])
+
+        # print(self.workers)
+        # print(self.skill2level2workers)
 
     def get_best_workers1(self, time, project):
 
+        r2contributors = {}
         contributors = []
         for role, level in project.roles.items():
             role_filled = False
-            for level_worker in self.skill2level2workers[role].keys():
+            for level_worker in sorted(self.skill2level2workers[role.strip()].keys()):
                 if level_worker>=level:
-                    for p in self.skill2level2workers[role][level]:
+                    for p in self.skill2level2workers[role.strip()][level_worker]:
+                        if p in contributors:
+                            continue
                         if p.is_free(time, project.days_required + time):
+                            r2contributors[role] = p
                             contributors.append(p)
                             role_filled = True
                             continue
             if not role_filled: 
-                return []
+                return {}
 
-        return contributors
+        return r2contributors
             
                 
 class Solver:
@@ -113,7 +121,7 @@ class Solver:
 
         self.solution = {}
 
-        self.worker_pool = WorkerPool(self.contributors)
+        
 
     def read(self, filename):
         with open(filename, 'r') as file:
@@ -133,23 +141,52 @@ class Solver:
                 roles = {}
                 for j in range(R):
                     skill, level = file.readline().split()
+                    while skill in roles:
+                        skill += " "
                     roles[skill] = int(level)
-                project = Project(name, D, S, B, roles)
+                project = Project(name, D, S, B, roles, i)
                 self.projects.append(project)
 
     def solve1(self):
-        self.projects = sorted( self.projects, key= lambda x : x.bb - x.days_required, reverse=True)
+
+        self.worker_pool = WorkerPool(self.contributors)
+
+        projects_reordered = sorted( self.projects, key= lambda x : x.bb - x.days_required, reverse=True)
+
+        max_days = max([ x.bb for x in projects_reordered])
         
-        time = 0
-        for p in self.projects:
-            workers_selected = self.worker_pool.get_best_workers1(time, p)
+        for time in range(max_days):
+            for p in projects_reordered:
 
-            if len(workers_selected) > 0:
-                for w in workers_selected:
-                    w.book_time(time, time + p.days_required )
+                if p.scheduled:
+                    continue
+                if time> (p.bb - p.days_required):
+                    continue
 
-                p.scheduled = True
-                p.assigned_workers = workers_selected
+                r2workers_selected = self.worker_pool.get_best_workers1(time, p)
+
+                # print(time)
+                # print(p)
+                # print(r2workers_selected)
+
+                if len(r2workers_selected) > 0:
+                    for r,w in r2workers_selected.items():
+                        r  = r.strip()
+                        w.book_time(time, time + p.days_required )
+                        if w.skills[r] == p.roles[r]:
+                            w.skills[r] += 1
+                        elif w.skills[r] == p.roles[r]-1:
+                            for w2 in r2workers_selected.values():
+                                if r in w2.skills and w2.skills[r]>w.skills[r]:
+                                    w.skills[r] += 1
+                                    break
+
+                    p.scheduled = True
+                    p.assigned_workers = r2workers_selected
+
+                    self.solution[p.id] = r2workers_selected.values()
+
+                    # print(self.solution)
 
 
     def write(self, filename):
@@ -170,9 +207,9 @@ class Solver:
 
 inputs = [
     "a_an_example.in.txt",
-    # "b_better_start_small.in.txt",
-    # "c_collaboration.in.txt",
-    # "d_dense_schedule.in.txt",
+    "b_better_start_small.in.txt",
+    "c_collaboration.in.txt",
+    "d_dense_schedule.in.txt",
     # "e_exceptional_skills.in.txt",
     # "f_find_great_mentors.in.txt",
 ]
@@ -180,4 +217,7 @@ inputs = [
 for input in inputs:
     solver = Solver()
     solver.read(os.path.join("in_data", input))
-    solver.print()
+    # solver.print()
+    solver.solve1()
+    solver.write(os.path.join("out_data", input))
+    print(input, "done")
